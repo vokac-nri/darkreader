@@ -1,9 +1,6 @@
 name: Create binary for release
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       retention_days:
