@@ -4,9 +4,10 @@ import type {ExtWrapper, Theme} from '../../../../definitions';
 import {getLocalMessage} from '../../../../utils/locales';
 import {isFirefox} from '../../../../utils/platform';
 import {isURLInList} from '../../../../utils/url';
-import {Button, Toggle} from '../../../controls';
+import {Button, DropDown, Toggle} from '../../../controls';
 import {SettingsIcon} from '../../../icons';
 import {openExtensionPage} from '../../../utils';
+import {getMinimumContrastOptions} from '../../theme/controls/minimum-contrast';
 import CustomSettingsToggle from '../custom-settings-toggle';
 import EngineSwitch from '../engine-switch';
 import FontSettings from '../font-settings';
@@ -36,6 +37,16 @@ export default function MoreSettings({data, actions, fonts}: ExtWrapper & {fonts
             </div>
             <div class="more-settings__section">
                 <EngineSwitch engine={theme.engine} onChange={(engine) => setConfig({engine})} />
+            </div>
+            <div class="more-settings__section">
+                <DropDown
+                    options={getMinimumContrastOptions()}
+                    selected={theme.minimumContrast}
+                    onChange={(minimumContrast) => setConfig({minimumContrast})}
+                />
+                <p class="more-settings__description">
+                    {getLocalMessage('minimum_contrast_description')}
+                </p>
             </div>
             <div class="more-settings__section">
                 <CustomSettingsToggle data={data} actions={actions} />

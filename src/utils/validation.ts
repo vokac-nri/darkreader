@@ -219,6 +219,7 @@ export function validateTheme(theme: Partial<Theme> | null | undefined): ThemeVa
     validateProperty(theme, 'lightColorScheme', isNonEmptyString, DEFAULT_THEME);
     validateProperty(theme, 'darkColorScheme', isNonEmptyString, DEFAULT_THEME);
     validateProperty(theme, 'immediateModify', isBoolean, DEFAULT_THEME);
+    validateProperty(theme, 'minimumContrast', isNumberBetween(0, 21), DEFAULT_THEME);
 
     return {errors, theme};
 }

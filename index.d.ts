@@ -117,6 +117,12 @@ declare namespace DarkReader {
          * Default true
          */
         styleSystemControls: boolean;
+        /**
+         * Minimum WCAG contrast ratio between text and its background (1 - 21).
+         * Text below it gets its lightness adjusted. 0 disables the check.
+         * Default 4.5
+         */
+        minimumContrast: number;
     }
 
     /**

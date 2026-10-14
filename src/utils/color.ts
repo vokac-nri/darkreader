@@ -671,6 +671,42 @@ export function getSRGBLightness(r: number, g: number, b: number): number {
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 
+function linearizeSRGBChannel(value: number): number {
+    const c = value / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+}
+
+// https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+export function getRelativeLuminance({r, g, b}: RGBA): number {
+    return 0.2126 * linearizeSRGBChannel(r) + 0.7152 * linearizeSRGBChannel(g) + 0.0722 * linearizeSRGBChannel(b);
+}
+
+// https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio
+export function getContrastRatio(a: RGBA, b: RGBA): number {
+    const la = getRelativeLuminance(a);
+    const lb = getRelativeLuminance(b);
+    const lighter = Math.max(la, lb);
+    const darker = Math.min(la, lb);
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+// Composites the top color over the bottom one (source-over)
+export function blendColors(top: RGBA, bottom: RGBA): RGBA {
+    const ta = top.a ?? 1;
+    const ba = bottom.a ?? 1;
+    const a = ta + ba * (1 - ta);
+    if (a === 0) {
+        return {r: 0, g: 0, b: 0, a: 0};
+    }
+    const mix = (over: number, under: number) => (over * ta + under * ba * (1 - ta)) / a;
+    return {
+        r: mix(top.r, bottom.r),
+        g: mix(top.g, bottom.g),
+        b: mix(top.b, bottom.b),
+        a,
+    };
+}
+
 let canvas: HTMLCanvasElement;
 let context: CanvasRenderingContext2D;
 
