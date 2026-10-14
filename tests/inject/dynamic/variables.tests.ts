@@ -11,6 +11,8 @@ const theme = {
     ...DEFAULT_THEME,
     darkSchemeBackgroundColor: 'black',
     darkSchemeTextColor: 'white',
+    // These tests check the color conversion itself, without contrast adjustments
+    minimumContrast: 0,
 };
 let container: HTMLElement;
 

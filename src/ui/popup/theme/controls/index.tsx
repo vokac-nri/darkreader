@@ -6,6 +6,7 @@ import {ExportTheme} from './export-theme';
 import FontPicker from './font-picker';
 import Grayscale from './grayscale';
 import ImmediateModify from './immediate-modify';
+import MinimumContrast from './minimum-contrast';
 import Mode from './mode';
 import ResetButton from './reset-button';
 import Scheme from './scheme';
@@ -26,6 +27,7 @@ export {
     FontPicker,
     Grayscale,
     ImmediateModify,
+    MinimumContrast,
     Mode,
     ResetButton,
     Scheme,

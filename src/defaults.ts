@@ -40,6 +40,7 @@ export const DEFAULT_THEME: Theme = {
     lightColorScheme: 'Default',
     darkColorScheme: 'Default',
     immediateModify: false,
+    minimumContrast: 4.5,
 };
 
 if (__PLUS__) {

@@ -73,6 +73,7 @@ export interface Theme {
     lightColorScheme: string;
     darkColorScheme: string;
     immediateModify: boolean;
+    minimumContrast: number;
 }
 
 export interface CustomSiteConfig {

@@ -1,5 +1,5 @@
 import type {HSLA} from '../../../src/utils/color';
-import {lowerCalcExpression, parse, hslToRGB, rgbToHSL, rgbToString, rgbToHexString, hslToString, getRGBValues} from '../../../src/utils/color';
+import {lowerCalcExpression, parse, hslToRGB, rgbToHSL, rgbToString, rgbToHexString, hslToString, getRGBValues, getRelativeLuminance, getContrastRatio, blendColors} from '../../../src/utils/color';
 
 test('Color parsing', () => {
     expect(parse('rgb(255,0,153)')).toEqual({r: 255, g: 0, b: 153, a: 1});
@@ -135,4 +135,30 @@ test('RGB numbers', () => {
     expect(getRGBValues('%')).toEqual(null);
     expect(getRGBValues('.')).toEqual(null);
     expect(getRGBValues('. . .')).toEqual(null);
+});
+
+test('Relative luminance', () => {
+    expect(getRelativeLuminance({r: 0, g: 0, b: 0})).toBe(0);
+    expect(getRelativeLuminance({r: 255, g: 255, b: 255})).toBeCloseTo(1);
+    expect(getRelativeLuminance({r: 255, g: 0, b: 0})).toBeCloseTo(0.2126);
+    expect(getRelativeLuminance({r: 119, g: 119, b: 119})).toBeCloseTo(0.1845, 3);
+});
+
+test('Contrast ratio', () => {
+    const black = {r: 0, g: 0, b: 0};
+    const white = {r: 255, g: 255, b: 255};
+    expect(getContrastRatio(black, white)).toBeCloseTo(21);
+    expect(getContrastRatio(white, black)).toBeCloseTo(21);
+    expect(getContrastRatio(white, white)).toBeCloseTo(1);
+    expect(getContrastRatio({r: 119, g: 119, b: 119}, white)).toBeCloseTo(4.48, 2);
+    expect(getContrastRatio({r: 118, g: 118, b: 118}, white)).toBeGreaterThan(4.5);
+});
+
+test('Blending colors', () => {
+    const white = {r: 255, g: 255, b: 255, a: 1};
+    expect(blendColors({r: 0, g: 0, b: 0, a: 1}, white)).toEqual({r: 0, g: 0, b: 0, a: 1});
+    expect(blendColors({r: 0, g: 0, b: 0, a: 0}, white)).toEqual(white);
+    expect(blendColors({r: 0, g: 0, b: 0, a: 0.5}, white)).toEqual({r: 127.5, g: 127.5, b: 127.5, a: 1});
+    expect(blendColors({r: 255, g: 0, b: 0, a: 0.5}, {r: 0, g: 0, b: 255, a: 0.5})).toEqual({r: 170, g: 0, b: 85, a: 0.75});
+    expect(blendColors({r: 0, g: 0, b: 0, a: 0}, {r: 0, g: 0, b: 0, a: 0})).toEqual({r: 0, g: 0, b: 0, a: 0});
 });

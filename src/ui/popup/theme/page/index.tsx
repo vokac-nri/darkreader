@@ -14,6 +14,7 @@ import {
     FontPicker,
     Grayscale,
     ImmediateModify,
+    MinimumContrast,
     Mode,
     ResetButton,
     Scheme,
@@ -53,6 +54,10 @@ function MainGroup({theme, change}: ThemeGroupProps) {
             <Grayscale
                 value={theme.grayscale}
                 onChange={(v) => change({grayscale: v})}
+            />
+            <MinimumContrast
+                value={theme.minimumContrast}
+                onChange={(v) => change({minimumContrast: v})}
             />
             <Scheme
                 isDark={theme.mode === 1}

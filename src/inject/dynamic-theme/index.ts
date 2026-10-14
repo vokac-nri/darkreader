@@ -14,6 +14,7 @@ import {logInfo, logWarn} from '../utils/log';
 
 import type {AdoptedStyleSheetManager} from './adopted-style-manger';
 import {createAdoptedStyleSheetOverride, canHaveAdoptedStyleSheets} from './adopted-style-manger';
+import {runContrastGuard, rescanContrastGuard, stopContrastGuard, watchContrastGuardRoot} from './contrast-guard';
 import {combineFixes, findRelevantFix} from './fixes';
 import {getStyleInjectionMode, injectStyleAway, removeStyleContainer} from './injection';
 import {overrideInlineStyle, getInlineOverrideStyle, watchForInlineStyles, stopWatchingForInlineStyles, INLINE_STYLE_SELECTOR} from './inline-style';
@@ -438,6 +439,7 @@ function createManager(element: StyleElement) {
         logInfo(`To-do to be loaded`, loadingStyles);
         if (loadingStyles.size === 0 && isDOMReady()) {
             cleanFallbackStyle();
+            rescanContrastGuard();
         }
     }
 
@@ -449,6 +451,7 @@ function createManager(element: StyleElement) {
         variablesStore.addRulesForMatching(details.rules);
         variablesStore.matchVariablesAndDependents();
         manager.render(theme!, ignoredImageAnalysisSelectors);
+        rescanContrastGuard();
         if (__TEST__) {
             document.dispatchEvent(new CustomEvent('__darkreader__test__dynamicUpdateComplete'));
         }
@@ -479,6 +482,7 @@ function onDOMReady() {
 function runDynamicStyle() {
     createDynamicStyleOverrides();
     watchForUpdates();
+    runContrastGuard(theme!);
 }
 
 function createThemeAndWatchForUpdates() {
@@ -511,6 +515,7 @@ function handleAdoptedStyleSheets(node: ShadowRoot | Document) {
             });
             variablesStore.matchVariablesAndDependents();
             newManger.render(theme!, ignoredImageAnalysisSelectors);
+            rescanContrastGuard();
         });
     }
 }
@@ -540,6 +545,7 @@ function watchForUpdates() {
     }, (shadowRoot) => {
         createShadowStaticStyleOverrides(shadowRoot);
         handleAdoptedStyleSheets(shadowRoot);
+        watchContrastGuardRoot(shadowRoot);
     });
 
     watchForInlineStyles((element) => {
@@ -554,6 +560,7 @@ function watchForUpdates() {
         }
     }, (root) => {
         createShadowStaticStyleOverrides(root);
+        watchContrastGuardRoot(root);
         const inlineStyleElements = root.querySelectorAll(INLINE_STYLE_SELECTOR) as NodeListOf<HTMLElement>;
         if (inlineStyleElements.length > 0) {
             forEach(inlineStyleElements, (el: HTMLElement) => overrideInlineStyle(el, theme!, ignoredInlineSelectors, ignoredImageAnalysisSelectors));
@@ -767,6 +774,7 @@ export function createOrUpdateDynamicThemeInternal(themeConfig: Theme, dynamicTh
         'grayscale',
         'lightSchemeBackgroundColor',
         'lightSchemeTextColor',
+        'minimumContrast',
         'sepia',
     ];
 
@@ -794,6 +802,7 @@ export function createOrUpdateDynamicThemeInternal(themeConfig: Theme, dynamicTh
             palette.background.forEach((color) => modifyBackgroundColor(color, theme!));
             palette.text.forEach((color) => modifyForegroundColor(color, theme!));
             palette.border.forEach((color) => modifyBorderColor(color, theme!));
+            runContrastGuard(theme!);
             return;
         }
 
@@ -1008,6 +1017,7 @@ export function cleanDynamicThemeCache(): void {
     cleanFilterSelectors();
     removeDocumentVisibilityListener();
     stopWatchingForUpdates();
+    stopContrastGuard();
     cleanModificationCache();
     clearColorCache();
     releaseVariablesSheet();
