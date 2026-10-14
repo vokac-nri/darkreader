@@ -176,9 +176,10 @@ export default class UserStorage {
     }
 
     private static saveSettingsIntoStorage = debounce(SAVE_TIMEOUT, async () => {
-        if (UserStorage.saveStorageBarrier) {
+        // Wait for any in-flight save to finish, then write the latest settings.
+        // Loop because another queued save may have started first.
+        while (UserStorage.saveStorageBarrier) {
             await UserStorage.saveStorageBarrier.entry();
-            return;
         }
         UserStorage.saveStorageBarrier = new PromiseBarrier();
 

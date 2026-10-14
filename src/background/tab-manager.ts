@@ -167,7 +167,10 @@ export default class TabManager {
 
                 case MessageTypeCStoBG.DOCUMENT_FREEZE: {
                     TabManager.stateManager.loadState().then(() => {
-                        const info = TabManager.tabs[sender.tab!.id!][sender.frameId!];
+                        const info = TabManager.tabs[sender.tab!.id!]?.[sender.frameId!];
+                        if (!info) {
+                            return;
+                        }
                         info.state = DocumentState.FROZEN;
                         info.url = null;
                         TabManager.stateManager.saveState();
@@ -184,12 +187,17 @@ export default class TabManager {
                     const documentId: string | null = __CHROMIUM_MV3__ ? sender.documentId! : (sender.documentId! || null);
                     const isTopFrame: boolean = (__CHROMIUM_MV2__ || __CHROMIUM_MV3__) ? (frameId === 0 || message.data.isTopFrame) : frameId === 0;
                     TabManager.stateManager.loadState().then(() => {
-                        if (TabManager.tabs[tabId][frameId].timestamp < TabManager.timestamp) {
+                        const info = TabManager.tabs[tabId]?.[frameId];
+                        // An untracked frame may have missed updates, so treat it as stale
+                        if (!info || info.timestamp < TabManager.timestamp) {
                             const response = TabManager.getTabMessage(tabURL, url, isTopFrame);
                             response.scriptId = message.scriptId!;
                             TabManager.sendDocumentMessage(tabId, documentId!, response, frameId!);
                         }
-                        TabManager.tabs[sender.tab!.id!][sender.frameId!] = {
+                        if (!TabManager.tabs[tabId]) {
+                            TabManager.tabs[tabId] = {};
+                        }
+                        TabManager.tabs[tabId][frameId] = {
                             documentId,
                             scriptId: message.scriptId!,
                             url,
