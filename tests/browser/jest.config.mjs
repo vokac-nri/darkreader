@@ -7,7 +7,8 @@ const rootDir = dirname(createRequire(import.meta.url).resolve('../../package.js
 /** @type {import('@jest/types').Config.InitialOptions} */
 const config = {
     rootDir,
-    testMatch: ['<rootDir>/tests/browser/**/*.tests.ts'],
+    roots: ['<rootDir>/tests/browser'],
+    testMatch: ['**/*.tests.ts'],
     moduleFileExtensions: ['ts', 'tsx', 'js'],
     testEnvironment: '<rootDir>/tests/browser/environment.js',
     verbose: true,
