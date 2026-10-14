@@ -31,7 +31,9 @@ export function configureKarma(config, env) {
             'tests/inject/support/customize.ts',
             'tests/inject/support/polyfills.ts',
             {pattern: 'tests/inject/**/*.tests.ts', watched: false},
-            {pattern: 'src/**/*.{ts,tsx}', included: false, served: false, watched: true},
+            // Separate patterns: Karma's glob drops file stats for brace patterns on Windows
+            {pattern: 'src/**/*.ts', included: false, served: false, watched: true},
+            {pattern: 'src/**/*.tsx', included: false, served: false, watched: true},
         ],
         plugins: [
             'karma-chrome-launcher',
@@ -42,7 +44,7 @@ export function configureKarma(config, env) {
             'karma-spec-reporter',
         ].filter(Boolean),
         preprocessors: {
-            '**/*.+(ts|tsx)': ['rollup'],
+            'tests/inject/**/*.+(ts|tsx)': ['rollup'],
         },
         rollupPreprocessor: {
             plugins: [
