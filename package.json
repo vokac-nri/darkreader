@@ -59,10 +59,6 @@
     "eye-care"
   ],
   "homepage": "https://darkreader.org/",
-  "funding": {
-    "type": "opencollective",
-    "url": "https://opencollective.com/darkreader/donate"
-  },
   "dependencies": {
     "malevic": "0.20.3"
   },

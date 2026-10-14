@@ -21,11 +21,9 @@ import DevTools from './devtools';
 import IconManager from './icon-manager';
 import type {ExtensionAdapter} from './messenger';
 import Messenger from './messenger';
-import Newsmaker from './newsmaker';
 import TabManager from './tab-manager';
-import UIHighlights from './ui-highlights';
 import UserStorage from './user-storage';
-import {getCommands, canInjectScript, writeLocalStorage, removeLocalStorage} from './utils/extension-api';
+import {getCommands, canInjectScript} from './utils/extension-api';
 import {logInfo, logWarn} from './utils/log';
 import {setWindowTheme, resetWindowTheme} from './window-theme';
 
@@ -44,7 +42,6 @@ interface SystemColorState extends Record<string, unknown> {
 
 declare const __CHROMIUM_MV2__: boolean;
 declare const __CHROMIUM_MV3__: boolean;
-declare const __PLUS__: boolean;
 declare const __THUNDERBIRD__: boolean;
 
 export class Extension {
@@ -274,7 +271,6 @@ export class Extension {
             TabManager.updateContentScript({runOnProtectedPages: UserStorage.settings.enableForProtectedPages});
         }
 
-        UserStorage.settings.fetchNews && Newsmaker.subscribe();
         Extension.startBarrier!.resolve();
     }
 
@@ -289,14 +285,9 @@ export class Extension {
             changeSettings: Extension.changeSettings,
             setTheme: Extension.setTheme,
             toggleActiveTab: Extension.toggleActiveTab,
-            markNewsAsRead: Newsmaker.markAsRead,
-            markNewsAsDisplayed: Newsmaker.markAsDisplayed,
             loadConfig: ConfigManager.load,
             applyDevFixes: DevTools.applyFixes,
             resetDevFixes: DevTools.resetFixes,
-            startActivation: Extension.startActivation,
-            resetActivation: Extension.resetActivation,
-            hideHighlights: UIHighlights.hideHighlights,
             waitUntilReady: Extension.waitUntilReady,
         };
     }
@@ -408,29 +399,23 @@ export class Extension {
     static async collectData(): Promise<ExtensionData> {
         await Extension.loadData();
         const [
-            news,
             shortcuts,
             activeTab,
             isAllowedFileSchemeAccess,
-            uiHighlights,
         ] = await Promise.all([
-            Newsmaker.getLatest(),
             Extension.getShortcuts(),
             Extension.getActiveTabInfo(),
             new Promise<boolean>((r) => chrome.extension.isAllowedFileSchemeAccess(r)),
-            UIHighlights.getHighlightsToShow(),
         ]);
         return {
             isEnabled: Extension.isExtensionSwitchedOn(),
             isReady: true,
             isAllowedFileSchemeAccess,
             settings: UserStorage.settings,
-            news,
             shortcuts,
             colorScheme: ConfigManager.COLOR_SCHEMES_RAW!,
             forcedScheme: Extension.autoState === 'scheme-dark' ? 'dark' : Extension.autoState === 'scheme-light' ? 'light' : null,
             activeTab,
-            uiHighlights,
         };
     }
 
@@ -558,10 +543,6 @@ export class Extension {
                 resetWindowTheme();
             }
         }
-        if (prev.fetchNews !== UserStorage.settings.fetchNews) {
-            UserStorage.settings.fetchNews ? Newsmaker.subscribe() : Newsmaker.unSubscribe();
-        }
-
         if (prev.enableContextMenus !== UserStorage.settings.enableContextMenus) {
             if (UserStorage.settings.enableContextMenus) {
                 Extension.registerContextMenus();
@@ -662,31 +643,6 @@ export class Extension {
         Extension.reportChanges();
         IconManager.setIcon({colorScheme: UserStorage.settings.theme.mode ? 'dark' : 'light'});
         Extension.stateManager!.saveState();
-    }
-
-    private static async startActivation(email: string, key: string) {
-        const delay = 2000 + Math.round(Math.random() * 2000);
-        const checkEmail = (email: string) => email && email.trim().includes('@');
-        const checkKey = (key: string) => key.replaceAll('-', '').length === 25 && key.toLocaleLowerCase().startsWith('dr') && key.replaceAll('-', '').match(/^[0-9a-z]{25}$/i);
-        setTimeout(async () => {
-            await writeLocalStorage({activationEmail: email, activationKey: key});
-            if (checkEmail(email) && checkKey(key)) {
-                await UIHighlights.hideHighlights(['anniversary']);
-                if (__PLUS__) {
-                    await Extension.changeSettings({previewNewestDesign: true});
-                }
-            }
-            Extension.reportChanges();
-        }, delay);
-    }
-
-    private static async resetActivation() {
-        await removeLocalStorage(['activationEmail', 'activationKey']);
-        await UIHighlights.restoreHighlights(['anniversary']);
-        if (__PLUS__) {
-            await Extension.changeSettings({previewNewestDesign: false});
-        }
-        Extension.reportChanges();
     }
 
     //----------------------

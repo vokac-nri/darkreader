@@ -105,14 +105,6 @@ export default class Connector implements ExtensionActions {
         chrome.runtime.sendMessage<MessageUItoBG>({type: MessageTypeUItoBG.TOGGLE_ACTIVE_TAB, data: {}});
     }
 
-    markNewsAsRead(ids: string[]): void {
-        chrome.runtime.sendMessage<MessageUItoBG>({type: MessageTypeUItoBG.MARK_NEWS_AS_READ, data: ids});
-    }
-
-    markNewsAsDisplayed(ids: string[]): void {
-        chrome.runtime.sendMessage<MessageUItoBG>({type: MessageTypeUItoBG.MARK_NEWS_AS_DISPLAYED, data: ids});
-    }
-
     loadConfig(options: {local: boolean}): void {
         chrome.runtime.sendMessage<MessageUItoBG>({type: MessageTypeUItoBG.LOAD_CONFIG, data: options});
     }
@@ -126,18 +118,6 @@ export default class Connector implements ExtensionActions {
 
     resetDevFixes(type: DevFixType): void {
         chrome.runtime.sendMessage<MessageUItoBG>({type: MessageTypeUItoBG.RESET_DEV_FIXES, data: {type}});
-    }
-
-    startActivation(email: string, key: string): void {
-        chrome.runtime.sendMessage<MessageUItoBG>({type: MessageTypeUItoBG.START_ACTIVATION, data: {email, key}});
-    }
-
-    resetActivation(): void {
-        chrome.runtime.sendMessage<MessageUItoBG>({type: MessageTypeUItoBG.RESET_ACTIVATION});
-    }
-
-    async hideHighlights(ids: string[]): Promise<void> {
-        chrome.runtime.sendMessage<MessageUItoBG>({type: MessageTypeUItoBG.HIDE_HIGHLIGHTS, data: ids});
     }
 
     disconnect(): void {

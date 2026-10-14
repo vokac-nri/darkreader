@@ -424,7 +424,6 @@ export default class CustomJestEnvironment extends TestEnvironment {
                 emulateColorScheme: async (colorScheme) => {
                     await sendToBackground('firefox-emulateColorScheme', colorScheme);
                 },
-                setNews: async (news) => await sendToBackground('setNews', news),
                 onDownload: (callback) => onDownloadCallback = callback,
             };
 
