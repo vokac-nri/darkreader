@@ -5,7 +5,7 @@ import {injectProxy} from '../../../src/inject/dynamic-theme/stylesheet-proxy';
 import {isFirefox} from '../../../src/utils/platform';
 import {stubChromeRuntimeGetURL} from '../support/background-stub';
 import {getJSEchoURL} from '../support/echo-client';
-import {multiline, timeout, waitForEvent} from '../support/test-utils';
+import {multiline, timeout, waitForEvent, waitForEventUntil} from '../support/test-utils';
 
 const theme = {
     ...DEFAULT_THEME,
@@ -899,11 +899,15 @@ describe('CSS VARIABLES OVERRIDE', () => {
             '    Icons',
             '</h1>',
         );
+        const icon3 = container.querySelector('.icon3')!;
+        const twoLayers = /^url\("blob:.*"\), url\("blob:.*"\)$/;
         createOrUpdateDynamicTheme(theme, null, false);
-        await waitForEvent('__darkreader__test__asyncQueueComplete');
+        // Each variable's image is processed separately, so --red-cross can be
+        // applied a queue flush after --icon. Until then .icon3 has no background.
+        await waitForEventUntil('__darkreader__test__asyncQueueComplete', () => twoLayers.test(getComputedStyle(icon3).backgroundImage));
         expect(getComputedStyle(container.querySelector('.icon1')!).backgroundImage).toMatch(/^url\("blob:.*"\)$/);
         expect(getComputedStyle(container.querySelector('.icon2')!).backgroundImage).toMatch(/^url\("blob:.*"\)$/);
-        expect(getComputedStyle(container.querySelector('.icon3')!).backgroundImage).toMatch(/^url\("blob:.*"\), url\("blob:.*"\)$/);
+        expect(getComputedStyle(icon3).backgroundImage).toMatch(twoLayers);
     });
 
     it('should handle variables with gradients and images', async () => {
