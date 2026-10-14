@@ -3,7 +3,6 @@ import {isNonPersistent} from '../utils/platform';
 declare const __THUNDERBIRD__: boolean;
 
 interface IconState {
-    badgeText: string;
     active: boolean;
 }
 
@@ -37,7 +36,6 @@ export default class IconManager {
     };
 
     private static readonly iconState: IconState = {
-        badgeText: '',
         active: true,
     };
 
@@ -58,7 +56,7 @@ export default class IconManager {
         if (!isNonPersistent) {
             return;
         }
-        if (IconManager.iconState.badgeText !== '' || !IconManager.iconState.active) {
+        if (!IconManager.iconState.active) {
             chrome.runtime.onStartup.addListener(IconManager.onStartup);
         } else {
             chrome.runtime.onStartup.removeListener(IconManager.onStartup);
@@ -101,19 +99,6 @@ export default class IconManager {
         }
         */
         chrome.browserAction.setIcon({path});
-        IconManager.handleUpdate();
-    }
-
-    static showBadge(text: string): void {
-        IconManager.iconState.badgeText = text;
-        chrome.browserAction.setBadgeBackgroundColor({color: '#e96c4c'});
-        chrome.browserAction.setBadgeText({text});
-        IconManager.handleUpdate();
-    }
-
-    static hideBadge(): void {
-        IconManager.iconState.badgeText = '';
-        chrome.browserAction.setBadgeText({text: ''});
         IconManager.handleUpdate();
     }
 }

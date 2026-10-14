@@ -2,12 +2,6 @@
 
 <p align="center">You can contribute to and help Dark Reader in many ways. Continue reading to learn how, and thank you in advance!</p>
 
-## Sponsor
-
-<a href="https://opencollective.com/darkreader/donate" target="_blank" rel="noreferrer noopener"> <img src="https://opencollective.com/darkreader/donate/button@2x.png?color=blue" width=300 /></a>
-
-Please sponsor the development of Dark Reader.
-
 ## Translation
 
 [Improve or suggest](https://github.com/darkreader/darkreader/tree/main/src/_locales) a translation. See the list of [language codes](https://developer.chrome.com/webstore/i18n#localeTable) that we can support.
