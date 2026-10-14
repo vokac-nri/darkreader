@@ -164,12 +164,20 @@ export function manageStyle(element: StyleElement, {update, loadingStart, loadin
     });
     const observerOptions: MutationObserverInit = {attributes: true, childList: true, subtree: true, characterData: true};
 
+    // Called several times per update, so the result is reused while the text is unchanged
+    let lastImportCheckText: string | null = null;
+    let lastImportCheckResult = false;
+
     function containsCSSImport() {
         if (!(element instanceof HTMLStyleElement)) {
             return false;
         }
-        const cssText = removeCSSComments(element.textContent ?? '').trim();
-        return cssText.match(cssImportRegex);
+        const text = element.textContent ?? '';
+        if (text !== lastImportCheckText) {
+            lastImportCheckText = text;
+            lastImportCheckResult = Boolean(removeCSSComments(text).trim().match(cssImportRegex));
+        }
+        return lastImportCheckResult;
     }
 
     // It loops trough the cssRules and check for CSSImportRule and their `href`.

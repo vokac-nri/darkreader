@@ -132,7 +132,16 @@ overridesList.forEach(({cssProp, customProp}) => normalizedPropList[customProp] 
 const INLINE_STYLE_ATTRS = ['style', 'fill', 'stop-color', 'stroke', 'bgcolor', 'color', 'background'];
 export const INLINE_STYLE_SELECTOR = INLINE_STYLE_ATTRS.map((attr) => `[${attr}]`).join(', ');
 
+let inlineOverrideStyle: string | null = null;
+
 export function getInlineOverrideStyle(): string {
+    if (inlineOverrideStyle === null) {
+        inlineOverrideStyle = buildInlineOverrideStyle();
+    }
+    return inlineOverrideStyle;
+}
+
+function buildInlineOverrideStyle(): string {
     const allOverrides = overridesList.concat(Object.values(shorthandOverrides));
     return allOverrides.map(({dataAttr, customProp, cssProp}) => {
         return [
@@ -243,7 +252,7 @@ function deepWatchForInlineStyles(
     });
     const attrObserver = new MutationObserver((mutations) => {
         if (timeoutId) {
-            cache.push(...mutations);
+            push(cache, mutations);
             return;
         }
         attemptCount++;
@@ -260,7 +269,7 @@ function deepWatchForInlineStyles(
                     cache = [];
                     handleAttributeMutations(attributeCache);
                 }, RETRY_TIMEOUT);
-                cache.push(...mutations);
+                push(cache, mutations);
                 return;
             }
             start = now;
@@ -322,9 +331,13 @@ function getThemeKey(theme: Theme): string {
 }
 
 function getInlineStyleCacheKey(el: HTMLElement, theme: Theme): string {
-    const attrKey = INLINE_STYLE_ATTRS
-        .filter((attr) => el.hasAttribute(attr))
-        .map((attr) => `${attr}="${el.getAttribute(attr)}"`);
+    let attrKey = '';
+    for (const attr of INLINE_STYLE_ATTRS) {
+        const value = el.getAttribute(attr);
+        if (value !== null) {
+            attrKey += `${attrKey ? ',' : ''}${attr}="${value}"`;
+        }
+    }
     return `${attrKey} ${getThemeKey(theme)}`;
 }
 

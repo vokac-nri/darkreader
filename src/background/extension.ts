@@ -566,6 +566,10 @@ export class Extension {
     }
 
     private static async reportChanges() {
+        // Collecting data takes several browser API calls, so skip it when no UI page is open
+        if (!Messenger.hasChangeListeners()) {
+            return;
+        }
         const info = await Extension.collectData();
         Messenger.reportChanges(info);
     }

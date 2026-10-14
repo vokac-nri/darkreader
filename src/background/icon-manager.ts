@@ -39,6 +39,9 @@ export default class IconManager {
         active: true,
     };
 
+    // Icon last passed to setIcon(), to skip redundant icon loads
+    private static lastIconPath: {[size: number]: string} | null = null;
+
     private static onStartup() {
         /**
          * This empty listener invokes extension background if extension has non-default
@@ -98,6 +101,10 @@ export default class IconManager {
             IconManager.handleUpdate();
         }
         */
+        if (path === IconManager.lastIconPath) {
+            return;
+        }
+        IconManager.lastIconPath = path;
         chrome.browserAction.setIcon({path});
         IconManager.handleUpdate();
     }

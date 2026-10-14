@@ -22,8 +22,9 @@ const rgbaParseCache = new Map<string, RGBA | null>();
 export function parseColorWithCache($color: string): RGBA | null {
     $color = $color.trim();
     const key = $color;
-    if (rgbaParseCache.has(key)) {
-        return rgbaParseCache.get(key)!;
+    const cached = rgbaParseCache.get(key);
+    if (cached !== undefined) {
+        return cached;
     }
     if ($color.includes('calc(')) {
         $color = lowerCalcExpression($color);
@@ -129,10 +130,19 @@ export function rgbToString(rgb: RGBA): string {
     return `rgb(${toFixed(r)}, ${toFixed(g)}, ${toFixed(b)})`;
 }
 
+const hexBytes: string[] = [];
+for (let i = 0; i < 256; i++) {
+    hexBytes.push(`${i < 16 ? '0' : ''}${i.toString(16)}`);
+}
+
+function toHexByte(x: number): string {
+    // Integers 0..255 use the lookup table, anything else keeps the original formatting
+    return hexBytes[x] ?? `${x < 16 ? '0' : ''}${x.toString(16)}`;
+}
+
 export function rgbToHexString({r, g, b, a}: RGBA): string {
-    return `#${(a != null && a < 1 ? [r, g, b, Math.round(a * 255)] : [r, g, b]).map((x) => {
-        return `${x < 16 ? '0' : ''}${x.toString(16)}`;
-    }).join('')}`;
+    const alpha = a != null && a < 1 ? toHexByte(Math.round(a * 255)) : '';
+    return `#${toHexByte(r)}${toHexByte(g)}${toHexByte(b)}${alpha}`;
 }
 
 export function hslToString(hsl: HSLA): string {

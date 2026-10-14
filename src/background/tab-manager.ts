@@ -474,33 +474,38 @@ export default class TabManager {
 
         (await queryTabs({discarded: false}))
             .filter((tab) => Boolean(TabManager.tabs[tab.id!]))
-            .forEach((tab) => {
+            .forEach(async (tab) => {
                 const frames = TabManager.tabs[tab.id!];
-                Object.entries(frames)
-                    .filter(([, {state}]) => state === DocumentState.ACTIVE || state === DocumentState.PASSIVE)
-                    .forEach(async ([id, {url, documentId, scriptId, isTop}]) => {
-                        const frameId = Number(id);
-                        const tabURL = await TabManager.getTabURL(tab);
+                const activeFrames = Object.entries(frames)
+                    .filter(([, {state}]) => state === DocumentState.ACTIVE || state === DocumentState.PASSIVE);
+                if (activeFrames.length === 0) {
+                    return;
+                }
 
-                        // Check if hostname are equal when we only want to update active tab.
-                        if (onlyUpdateActiveTab && getURLHostOrProtocol(tabURL) !== activeTabHostname) {
-                            return;
-                        }
+                // Look up the tab URL once per tab rather than once per frame (each lookup is an API call on MV3)
+                const tabURL = await TabManager.getTabURL(tab);
 
-                        const message = TabManager.getTabMessage(tabURL, url!, isTop || false);
-                        message.scriptId = scriptId;
+                // Check if hostname are equal when we only want to update active tab.
+                if (onlyUpdateActiveTab && getURLHostOrProtocol(tabURL) !== activeTabHostname) {
+                    return;
+                }
 
-                        if (tab.active && isTop) {
+                activeFrames.forEach(([id, {url, documentId, scriptId, isTop}]) => {
+                    const frameId = Number(id);
+                    const message = TabManager.getTabMessage(tabURL, url!, isTop || false);
+                    message.scriptId = scriptId;
+
+                    if (tab.active && isTop) {
+                        TabManager.sendDocumentMessage(tab!.id!, documentId!, message, frameId);
+                    } else {
+                        setTimeout(() => {
                             TabManager.sendDocumentMessage(tab!.id!, documentId!, message, frameId);
-                        } else {
-                            setTimeout(() => {
-                                TabManager.sendDocumentMessage(tab!.id!, documentId!, message, frameId);
-                            });
-                        }
-                        if (TabManager.tabs[tab.id!][frameId]) {
-                            TabManager.tabs[tab.id!][frameId].timestamp = TabManager.timestamp;
-                        }
-                    });
+                        });
+                    }
+                    if (TabManager.tabs[tab.id!]?.[frameId]) {
+                        TabManager.tabs[tab.id!][frameId].timestamp = TabManager.timestamp;
+                    }
+                });
             });
     }
 

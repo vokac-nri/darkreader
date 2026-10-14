@@ -150,14 +150,15 @@ const scheduleInversionStyleUpdate = throttle(() => {
         return;
     }
 
+    const cssText = getInversionStyleValue();
     const invertStyle = document.head?.querySelector<HTMLStyleElement>('.darkreader--invert');
     if (invertStyle) {
-        invertStyle.textContent = getInversionStyleValue();
+        invertStyle.textContent = cssText;
     }
     shadowRootsWithOverrides.forEach((root) => {
         const shadowInvertStyle = root.querySelector<HTMLStyleElement>('.darkreader--invert');
         if (shadowInvertStyle) {
-            shadowInvertStyle.textContent = getInversionStyleValue();
+            setTextContentIfChanged(shadowInvertStyle, cssText);
         }
     });
 });
@@ -294,16 +295,23 @@ function createStaticStyleOverrides() {
 
 const shadowRootsWithOverrides = new Set<ShadowRoot>();
 
+// Re-setting identical text still recreates the sheet and restyles the shadow tree
+function setTextContentIfChanged(element: HTMLStyleElement, text: string) {
+    if (element.textContent !== text) {
+        element.textContent = text;
+    }
+}
+
 function createShadowStaticStyleOverridesInner(root: ShadowRoot) {
     const inlineStyle = createOrUpdateStyle('darkreader--inline', root);
-    inlineStyle.textContent = getInlineOverrideStyle();
+    setTextContentIfChanged(inlineStyle, getInlineOverrideStyle());
     root.insertBefore(inlineStyle, root.firstChild);
     const overrideStyle = createOrUpdateStyle('darkreader--override', root);
-    overrideStyle.textContent = fixes && fixes.css ? replaceCSSTemplates(fixes.css) : '';
+    setTextContentIfChanged(overrideStyle, fixes && fixes.css ? replaceCSSTemplates(fixes.css) : '');
     root.insertBefore(overrideStyle, inlineStyle.nextSibling);
 
     const invertStyle = createOrUpdateStyle('darkreader--invert', root);
-    invertStyle.textContent = getInversionStyleValue();
+    setTextContentIfChanged(invertStyle, getInversionStyleValue());
     root.insertBefore(invertStyle, overrideStyle.nextSibling);
     shadowRootsWithOverrides.add(root);
 }
