@@ -4,6 +4,8 @@ import type {RGBA} from '../../utils/color';
 import {blendColors, getContrastRatio, getRelativeLuminance, hslToRGB, parseColorWithCache, rgbToHSL, rgbToHexString} from '../../utils/color';
 import {addReadyStateCompleteListener, createOptimizedTreeObserver, iterateShadowHosts, removeNode} from '../utils/dom';
 
+import {getCachedImageDetails} from './modify-css';
+
 declare const __TEST__: boolean;
 
 // The Contrast Guard runs after the dynamic theme has been applied.
@@ -66,7 +68,8 @@ export function runContrastGuard($theme: Theme): void {
 
 function start() {
     isRunning = true;
-    intersectionObserver = new IntersectionObserver(onIntersection, {rootMargin: '200px'});
+    // No margin: the background is found by hit testing, which only works for text on screen
+    intersectionObserver = new IntersectionObserver(onIntersection);
     watchRoot(document);
     iterateShadowHosts(document.documentElement, (host) => watchRoot(host.shadowRoot!));
 }
@@ -230,12 +233,22 @@ function getContrastFix(el: Element): string | null {
     if (style.getPropertyValue('background-clip') === 'text' || style.getPropertyValue('-webkit-background-clip') === 'text') {
         return null;
     }
-    const bg = getEffectiveBackground(el, style);
-    if (!bg || hasFilter(el)) {
+    const backgrounds = getEffectiveBackgrounds(el, style);
+    if (!backgrounds || hasFilter(el)) {
         return null;
     }
+    // A gradient can put several colors behind the text, the least readable one decides
+    let bg = backgrounds[0];
+    let ratio = Infinity;
+    for (const candidate of backgrounds) {
+        const r = getContrastRatio(blendColors(fg, candidate), candidate);
+        if (r < ratio) {
+            bg = candidate;
+            ratio = r;
+        }
+    }
     const threshold = theme!.minimumContrast;
-    if (getContrastRatio(blendColors(fg, bg), bg) >= threshold) {
+    if (ratio >= threshold) {
         return null;
     }
     return rgbToHexString(findReadableColor(fg, bg, threshold));
@@ -252,36 +265,211 @@ function getParent(el: Element): Element | null {
     return parent instanceof ShadowRoot ? parent.host : null;
 }
 
-// Walks up the ancestors and blends their background colors until an opaque one is found.
-// Returns null when the background can't be known (images, gradients, transparent iframe).
-function getEffectiveBackground(el: Element, style: CSSStyleDeclaration): RGBA | null {
-    const layers: RGBA[] = [];
-    let node: Element | null = el;
-    let s = style;
-    while (node) {
-        if (s.backgroundImage !== 'none') {
-            return null;
-        }
-        const color = parseColorWithCache(s.backgroundColor);
-        if (color && color.a !== 0) {
-            layers.push(color);
-            if (color.a == null || color.a >= 1) {
-                break;
-            }
-        }
-        node = getParent(node);
-        if (node) {
-            s = getComputedStyle(node);
+// Colors that can be painted at one spot of a background layer, several for gradients
+type Layer = RGBA[];
+
+enum LayerResult {
+    Translucent,
+    Opaque,
+    Unknown
+}
+
+const REPLACED_TAGS = new Set(['IMG', 'PICTURE', 'VIDEO', 'CANVAS', 'IFRAME', 'EMBED', 'OBJECT']);
+const MAX_BACKGROUND_CANDIDATES = 16;
+const black: RGBA = {r: 0, g: 0, b: 0, a: 1};
+const white: RGBA = {r: 255, g: 255, b: 255, a: 1};
+
+function isOpaque(color: RGBA) {
+    return color.a == null || color.a >= 1;
+}
+
+interface TextBox {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+// The center of the element's first line of text, clamped to the viewport
+function getTextBox(el: Element): TextBox | null {
+    let rect: DOMRect | null = null;
+    for (let node = el.firstChild; node; node = node.nextSibling) {
+        if (node instanceof Text && node.data.trim()) {
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            rect = range.getClientRects()[0] ?? null;
+            break;
         }
     }
-    if (!node) {
+    if (!rect || rect.width === 0 || rect.height === 0) {
+        rect = el.getBoundingClientRect();
+    }
+    const left = Math.max(rect.left, 0);
+    const right = Math.min(rect.right, document.documentElement.clientWidth);
+    const top = Math.max(rect.top, 0);
+    const bottom = Math.min(rect.bottom, document.documentElement.clientHeight);
+    if (left >= right || top >= bottom) {
         return null;
     }
-    let bg = layers.pop()!;
-    while (layers.length > 0) {
-        bg = blendColors(layers.pop()!, bg);
+    return {x: (left + right) / 2, y: (top + bottom) / 2, width: rect.width, height: rect.height};
+}
+
+// Elements painted under the text, from the element itself down to the page.
+// Unlike the ancestors, this includes positioned siblings and cards placed behind the text.
+function getElementsBehind(el: Element, box: TextBox | null): Element[] {
+    if (box) {
+        const root = el.getRootNode() as Document | ShadowRoot;
+        if (typeof root.elementsFromPoint === 'function') {
+            const stack = root.elementsFromPoint(box.x, box.y);
+            const index = stack.indexOf(el);
+            if (index >= 0) {
+                return stack.slice(index);
+            }
+        }
     }
-    return bg;
+    // Text that can't be hit tested (off-screen, `pointer-events: none`) falls back to the ancestors
+    const ancestors: Element[] = [];
+    for (let node: Element | null = el; node; node = getParent(node)) {
+        ancestors.push(node);
+    }
+    return ancestors;
+}
+
+// Gradient colors come serialized as rgb()/rgba() in computed styles.
+// Images use the analysis the theme already made, when the image wasn't replaced.
+function getImageColor(url: string): RGBA | null {
+    const details = getCachedImageDetails(url);
+    if (!details || details.isTransparent) {
+        return null;
+    }
+    if (details.solidColor) {
+        return details.solidColor;
+    }
+    if (details.isLight) {
+        return white;
+    }
+    return details.isDark ? black : null;
+}
+
+function getImageColors(backgroundImage: string): RGBA[] | null {
+    const colors: RGBA[] = [];
+    let isUnknown = false;
+    const withoutURLs = backgroundImage.replace(/url\(\s*(['"]?)(.*?)\1\s*\)/g, (_, __, url: string) => {
+        const color = getImageColor(url);
+        if (color) {
+            colors.push(color);
+        } else {
+            isUnknown = true;
+        }
+        return '';
+    });
+    if (isUnknown) {
+        return null;
+    }
+    if (withoutURLs.includes('gradient')) {
+        const stops = withoutURLs.match(/rgba?\([^)]*\)/g);
+        if (!stops) {
+            return null;
+        }
+        for (const stop of stops) {
+            const color = parseColorWithCache(stop);
+            if (!color) {
+                return null;
+            }
+            colors.push(color);
+        }
+    }
+    return colors.length > 0 ? colors : null;
+}
+
+function addBackgroundLayers(s: CSSStyleDeclaration, layers: Layer[]): LayerResult {
+    if (s.backgroundImage !== 'none') {
+        const colors = getImageColors(s.backgroundImage);
+        if (!colors) {
+            return LayerResult.Unknown;
+        }
+        layers.push(colors);
+        if (colors.every(isOpaque)) {
+            return LayerResult.Opaque;
+        }
+    }
+    const color = parseColorWithCache(s.backgroundColor);
+    if (color && color.a !== 0) {
+        layers.push([color]);
+        if (isOpaque(color)) {
+            return LayerResult.Opaque;
+        }
+    }
+    return LayerResult.Translucent;
+}
+
+// A positioned pseudo-element at least as big as the text is likely a backdrop for it
+function isPseudoBackdrop(s: CSSStyleDeclaration, box: TextBox | null) {
+    if (s.content === 'none' || s.content === 'normal') {
+        return false;
+    }
+    if (s.position !== 'absolute' && s.position !== 'fixed') {
+        return false;
+    }
+    if (!box) {
+        return false;
+    }
+    return parseFloat(s.width) >= box.width && parseFloat(s.height) >= box.height;
+}
+
+// Blends the backgrounds of everything painted under the text until an opaque layer is found.
+// Returns null when the background can't be known (photos, replaced elements, filters, transparent iframe).
+function getEffectiveBackgrounds(el: Element, style: CSSStyleDeclaration): RGBA[] | null {
+    const box = getTextBox(el);
+    const layers: Layer[] = [];
+    let isOpaqueFound = false;
+    for (const node of getElementsBehind(el, box)) {
+        if (REPLACED_TAGS.has(node.tagName) || (node instanceof SVGElement && node !== el)) {
+            return null;
+        }
+        const s = node === el ? style : getComputedStyle(node);
+        if (s.opacity === '0') {
+            continue;
+        }
+        if (node !== el && s.filter !== 'none') {
+            return null;
+        }
+        let result = LayerResult.Translucent;
+        for (const pseudo of ['::after', '::before']) {
+            const ps = getComputedStyle(node, pseudo);
+            if (isPseudoBackdrop(ps, box)) {
+                result = addBackgroundLayers(ps, layers);
+                if (result !== LayerResult.Translucent) {
+                    break;
+                }
+            }
+        }
+        if (result === LayerResult.Translucent) {
+            result = addBackgroundLayers(s, layers);
+        }
+        if (result === LayerResult.Unknown) {
+            return null;
+        }
+        if (result === LayerResult.Opaque) {
+            isOpaqueFound = true;
+            break;
+        }
+    }
+    if (!isOpaqueFound) {
+        return null;
+    }
+    let backgrounds = layers.pop()!;
+    while (layers.length > 0) {
+        const layer = layers.pop()!;
+        const blended: RGBA[] = [];
+        for (const top of layer) {
+            for (const bottom of backgrounds) {
+                blended.push(blendColors(top, bottom));
+            }
+        }
+        backgrounds = blended.slice(0, MAX_BACKGROUND_CANDIDATES);
+    }
+    return backgrounds;
 }
 
 // Colors inside filtered elements (e.g. the inverted ones) are not what gets painted

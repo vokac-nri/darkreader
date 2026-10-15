@@ -345,6 +345,10 @@ const imageDetailsCache = new Map<string, ImageDetails>();
 const awaitingForImageLoading = new Map<string, Array<(imageDetails: ImageDetails | null) => void>>();
 let didTryLoadCache = false;
 
+export function getCachedImageDetails(url: string): ImageDetails | null {
+    return imageDetailsCache.get(url) ?? null;
+}
+
 function shouldIgnoreImage(selectorText: string, selectors: string[]) {
     if (!selectorText || selectors.length === 0) {
         return false;
