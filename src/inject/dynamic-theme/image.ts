@@ -300,10 +300,15 @@ document.addEventListener('securitypolicyviolation', onCSPError);
 const filteredImageURLs = new Map<string, {matrix: string; url: string}>();
 
 export function getFilteredImageURL({dataURL, width, height, useViewBox, src}: ImageDetails, theme: Theme): string {
+    const matrix = getSVGFilterMatrixValue(theme);
+    const cached = isBlobURLSupported ? filteredImageURLs.get(src) : undefined;
+    if (cached && cached.matrix === matrix) {
+        return cached.url;
+    }
+
     if (dataURL.startsWith('data:image/svg+xml')) {
         dataURL = escapeXML(dataURL);
     }
-    const matrix = getSVGFilterMatrixValue(theme);
     const size = useViewBox ? `viewBox="0 0 ${width} ${height}"` : `width="${width}" height="${height}"`;
     const svg = [
         `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ${size}>`,
@@ -318,11 +323,6 @@ export function getFilteredImageURL({dataURL, width, height, useViewBox, src}: I
 
     if (!isBlobURLSupported) {
         return `data:image/svg+xml;base64,${btoa(svg)}`;
-    }
-
-    const cached = filteredImageURLs.get(src);
-    if (cached && cached.matrix === matrix) {
-        return cached.url;
     }
 
     const bytes = new Uint8Array(svg.length);

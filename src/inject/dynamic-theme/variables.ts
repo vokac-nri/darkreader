@@ -28,6 +28,9 @@ const VAR_TYPE_BG_IMG = 1 << 3;
 
 const shouldSetDefaultColor = !location.hostname.startsWith('www.ebay.') && !location.hostname.includes('.ebay.');
 
+// Last `:root` rule text written to each root-vars sheet, so identical rewrites can be skipped
+const rootVarsSheetText = new WeakMap<CSSStyleSheet, string>();
+
 export class VariablesStore {
     private varTypes = new Map<string, number>();
     private rulesQueue = new Set<CSSRuleList | CSSRule[]>();
@@ -632,9 +635,13 @@ export class VariablesStore {
         const sheet = styleElement.sheet;
         if (sheet) {
             if (sheet.cssRules.length > 0) {
+                if (rootVarsSheetText.get(sheet) === cssText) {
+                    return;
+                }
                 sheet.deleteRule(0);
             }
             sheet.insertRule(cssText);
+            rootVarsSheetText.set(sheet, cssText);
         } else {
             styleElement.textContent = cssText;
         }
@@ -750,10 +757,16 @@ function getVarFallback(value: string): string {
 }
 
 function iterateVarDependencies(value: string, iterator: (varName: string) => void) {
-    replaceCSSVariablesNames(value, (varName) => {
-        iterator(varName);
-        return varName;
-    });
+    let i = 0;
+    let range: Range | null;
+    while ((range = getVariableRange(value, i))) {
+        const {name, fallback} = getVariableNameAndFallback(value.substring(range.start, range.end));
+        iterator(name);
+        if (fallback && isVarDependant(fallback)) {
+            iterateVarDependencies(fallback, iterator);
+        }
+        i = range.end + 1;
+    }
 }
 
 function wrapBgColorVariableName(name: string) {

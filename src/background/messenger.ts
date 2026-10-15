@@ -129,6 +129,10 @@ export default class Messenger {
         }
     }
 
+    static hasChangeListeners(): boolean {
+        return Messenger.changeListenerCount > 0;
+    }
+
     static reportChanges(data: ExtensionData): void {
         if (Messenger.changeListenerCount > 0) {
             chrome.runtime.sendMessage<MessageBGtoUI>({
