@@ -5,7 +5,7 @@ import * as reload from './reload.js';
 import {createTask} from './task.js';
 import {readJSON, writeJSON} from './utils.js';
 
-async function patchManifest(platform, debug, watch, test) {
+async function patchManifest(platform, debug, watch, test, version) {
     const isMV2 = platform === PLATFORM.CHROMIUM_MV2 || platform === PLATFORM.CHROMIUM_MV2_PLUS;
     const isMV3 = platform === PLATFORM.CHROMIUM_MV3 || platform === PLATFORM.CHROMIUM_MV3_PLUS;
     const isPlus = platform === PLATFORM.CHROMIUM_MV2_PLUS || platform === PLATFORM.CHROMIUM_MV3_PLUS;
@@ -19,6 +19,10 @@ async function patchManifest(platform, debug, watch, test) {
     }
     if (isMV3) {
         patched.browser_action = undefined;
+    }
+    if (!debug && !version && platform === PLATFORM.FIREFOX_MV2) {
+        const {version} = await readJSON(absolutePath('fork-version.json'));
+        patched.version = version;
     }
     if (debug) {
         patched.version = '1';
@@ -37,10 +41,10 @@ async function patchManifest(platform, debug, watch, test) {
     return patched;
 }
 
-async function manifests({platforms, debug, watch, test}) {
+async function manifests({platforms, debug, watch, test, version}) {
     const enabledPlatforms = Object.values(PLATFORM).filter((platform) => platform !== PLATFORM.API && platforms[platform]);
     for (const platform of enabledPlatforms) {
-        const manifest = await patchManifest(platform, debug, watch, test);
+        const manifest = await patchManifest(platform, debug, watch, test, version);
         const destDir = getDestDir({debug, platform});
         await writeJSON(`${destDir}/manifest.json`, manifest);
     }

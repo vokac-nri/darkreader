@@ -31,6 +31,7 @@
     "test:firefox": "node tasks/cli.js build --debug --test --firefox-mv2 && jest --config=tests/browser/jest.config.firefox.mjs --runInBand",
     "test:inject": "node --max-old-space-size=3072 node_modules/karma/bin/karma start ./tests/inject/karma.conf.cjs",
     "test:inject:debug": "node --max-old-space-size=3072 node_modules/karma/bin/karma start ./tests/inject/karma.conf.cjs --debug",
+    "test:release": "node --test tests/release/*.tests.js",
     "test:unit": "jest --config=tests/unit/jest.config.mjs",
     "test:unit:debug": "node --inspect-brk ./node_modules/jest/bin/jest --config=tests/unit/jest.config.mjs --runInBand --no-cache --watch",
     "translate-en-message": "node ./tasks/translate.js --message",

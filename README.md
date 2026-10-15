@@ -9,6 +9,10 @@
 <br/>
 <br/>
 
+## Custom Firefox fork releases
+
+Merges to this fork's `main` branch automatically increment the tracked fork minor version, build a Firefox XPI, and publish the latest GitHub release. See [Firefox fork releases](docs/firefox-fork-releases.md) for setup, retries, and signing details.
+
 ## Questions
 
 Most questions can be answered by reading the [help page](https://darkreader.org/help/).

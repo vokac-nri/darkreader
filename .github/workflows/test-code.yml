@@ -47,6 +47,9 @@ jobs:
       - name: Lint code for code-style errors
         run: npm run lint
 
+      - name: Test fork versioning
+        run: npm run test:release
+
       - name: Check for compatibility issues
         run: npm run lint:bundle
 
