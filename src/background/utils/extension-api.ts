@@ -98,6 +98,8 @@ export async function readLocalStorage<T extends {[key: string]: any}>(defaults:
 }
 
 function prepareSyncStorage<T extends {[key: string]: any}>(values: T): {[key: string]: any} {
+    // Build a new object so the caller's values (e.g. live UserStorage.settings) are left untouched
+    const packaged: {[key: string]: any} = {...values};
     for (const key in values) {
         const value = values[key];
         const string = JSON.stringify(value);
@@ -110,14 +112,14 @@ function prepareSyncStorage<T extends {[key: string]: any}>(values: T): {[key: s
             const maxLength = chrome.storage.sync.QUOTA_BYTES_PER_ITEM - key.length - 1 - 2;
             const minimalKeysNeeded = Math.ceil(string.length / maxLength);
             for (let i = 0; i < minimalKeysNeeded; i++) {
-                (values as any)[`${key}_${i.toString(36)}`] = string.substring(i * maxLength, (i + 1) * maxLength);
+                packaged[`${key}_${i.toString(36)}`] = string.substring(i * maxLength, (i + 1) * maxLength);
             }
-            (values as any)[key] = {
+            packaged[key] = {
                 __meta_split_count: minimalKeysNeeded,
             };
         }
     }
-    return values;
+    return packaged;
 }
 
 export async function writeSyncStorage<T extends {[key: string]: any}>(values: T): Promise<void> {
