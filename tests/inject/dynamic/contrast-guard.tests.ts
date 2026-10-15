@@ -72,7 +72,7 @@ describe('CONTRAST GUARD', () => {
         expect(container.querySelector('.text')!.hasAttribute('data-darkreader-contrast')).toBe(false);
     });
 
-    it('should skip text over background images', async () => {
+    it('should fix text over a light gradient', async () => {
         container.innerHTML = multiline(
             linkStyle,
             '<div class="panel" style="background-image: linear-gradient(white, white)"><a class="link">Update</a></div>',
@@ -80,7 +80,60 @@ describe('CONTRAST GUARD', () => {
         createOrUpdateDynamicTheme(theme, fixes, false);
         await waitForGuard();
 
+        expect(getTextContrast(container.querySelector('.link')!)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('should measure gradients against their least readable color', async () => {
+        container.innerHTML = multiline(
+            linkStyle,
+            '<div class="panel" style="background-image: linear-gradient(black, white)"><a class="link">Update</a></div>',
+        );
+        createOrUpdateDynamicTheme(theme, fixes, false);
+        await waitForGuard();
+
+        expect(getTextContrast(container.querySelector('.link')!)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('should skip text over images that were not analyzed', async () => {
+        const pixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+        container.innerHTML = multiline(
+            linkStyle,
+            `<div class="panel" style="background-image: url(${pixel})"><a class="link">Update</a></div>`,
+        );
+        createOrUpdateDynamicTheme(theme, fixes, false);
+        await waitForGuard();
+
         expect(container.querySelector('.link')!.hasAttribute('data-darkreader-contrast')).toBe(false);
+    });
+
+    it('should fix text over a light sibling placed behind it', async () => {
+        container.innerHTML = multiline(
+            linkStyle,
+            '<div style="position: relative; height: 50px">',
+            '    <div class="panel" style="position: absolute; inset: 0; background-color: white"></div>',
+            '    <a class="link" style="position: relative">Update</a>',
+            '</div>',
+        );
+        createOrUpdateDynamicTheme(theme, fixes, false);
+        await waitForGuard();
+
+        expect(getTextContrast(container.querySelector('.link')!)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it('should fix text over a light pseudo-element backdrop', async () => {
+        // Fix CSS is not modified by the theme, so the backdrop stays white
+        const backdropFixes = [{
+            ...fixes[0],
+            css: '.backdrop::before { content: ""; position: absolute; inset: 0; z-index: -1; background-color: white; }',
+        }];
+        container.innerHTML = multiline(
+            linkStyle,
+            '<div class="backdrop" style="position: relative; z-index: 0"><a class="link">Update</a></div>',
+        );
+        createOrUpdateDynamicTheme(theme, backdropFixes, false);
+        await waitForGuard();
+
+        expect(getTextContrast(container.querySelector('.link')!)).toBeGreaterThanOrEqual(4.5);
     });
 
     it('should be disabled by zero minimum contrast', async () => {
