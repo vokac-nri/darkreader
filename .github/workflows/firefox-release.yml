@@ -1,0 +1,138 @@
+name: Release Firefox fork
+
+on:
+  push:
+    branches:
+      - main
+
+# Keep each merge queued, including when several merges arrive during a build.
+concurrency:
+  group: firefox-fork-release
+  queue: max
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out main and its release history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+
+      - name: Reserve the next fork version
+        id: version
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # A committed source marker lets a failed run resume its original release.
+          # Retry the atomic push if a merge reaches main during version reservation.
+          reserved=false
+          for attempt in 1 2 3; do
+            git fetch origin main --tags
+            existing="$(git log origin/main --format=%H -1 --grep="^Firefox-Release-Source: ${SOURCE_SHA}$" -- fork-version.json)"
+            if [ -n "$existing" ]; then
+              git checkout --detach "$existing"
+              version="$(node -p "require('./fork-version.json').version")"
+              tag="v$version"
+              test "$(git rev-parse "refs/tags/$tag^{commit}")" = "$existing"
+              reserved=true
+              break
+            fi
+
+            git merge-base --is-ancestor "$SOURCE_SHA" origin/main
+            git checkout --detach origin/main
+            version="$(node tasks/fork-version.js)"
+            tag="v$version"
+            if git show-ref --verify --quiet "refs/tags/$tag"; then
+              echo "::error::Release tag $tag already exists; refusing to overwrite it."
+              exit 1
+            fi
+            git add fork-version.json
+            git commit -m "chore: release Firefox $tag" -m "Firefox-Release-Source: $SOURCE_SHA"
+            git tag "$tag"
+
+            # GITHUB_TOKEN pushes do not trigger another push workflow.
+            if git push --atomic origin HEAD:refs/heads/main "refs/tags/$tag"; then
+              reserved=true
+              break
+            fi
+            git tag --delete "$tag"
+          done
+          if [ "$reserved" != true ]; then
+            echo "::error::Could not reserve a version on main. Check branch rules and rerun this workflow."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Test fork versioning
+        run: npm run test:release
+
+      - name: Run unit tests
+        run: npm run test:unit -- --runInBand
+
+      - name: Build Firefox XPI
+        run: npm run build:firefox
+
+      - name: Verify and name the release asset
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const manifest = JSON.parse(readFileSync('build/release/firefox/manifest.json', 'utf8'));
+          assert.equal(manifest.version, process.env.VERSION);
+          NODE
+          mv build/release/darkreader-firefox.xpi "build/release/darkreader-firefox-$VERSION.xpi"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Retrying an older failed run must not replace a newer Latest release.
+          git fetch origin main
+          current="$(git show origin/main:fork-version.json | node -pe "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")"
+          latest=false
+          if [ "$current" = "$VERSION" ]; then
+            latest=true
+          fi
+          asset="build/release/darkreader-firefox-$VERSION.xpi"
+          if draft="$(gh release view "$TAG" --json isDraft --jq .isDraft)"; then
+            if [ "$draft" = true ]; then
+              gh release upload "$TAG" "$asset" --clobber
+              gh release edit "$TAG" --draft=false --latest="$latest"
+            else
+              echo "Release $TAG is already published."
+            fi
+          else
+            gh release create "$TAG" "$asset" --verify-tag --latest="$latest" \
+              --title "$TAG (Firefox fork)" --generate-notes \
+              --notes "Unsigned Firefox build of this custom fork. Mozilla signing is not configured."
+          fi
