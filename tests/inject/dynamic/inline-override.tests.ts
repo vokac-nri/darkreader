@@ -58,7 +58,7 @@ describe('INLINE STYLES', () => {
         container.innerHTML = '<span style="color: red;">Watch inline style</span>';
         createOrUpdateDynamicTheme(theme, null, false);
         const span = document.querySelector('span')!;
-        expect(span.getAttribute('style')!.startsWith('color: red; --darkreader-inline-color:')).toBeTrue();
+        expect(span.getAttribute('style')!.startsWith('color: red; --darkreader-inline-color:')).toBe(true);
         expect(span.getAttribute('style')!.includes('--darkreader-inline-color: var(--darkreader-text-ff0000, #ff1a1a);')).toBe(true);
 
         span.style.color = '';

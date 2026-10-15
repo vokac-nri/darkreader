@@ -13,12 +13,12 @@ node_modules/
 # Test results
 #-----------------------------------
 test-results-*.json
+.vitest/
 
 # Code coverage reports
 #-----------------------------------
 tests/coverage/
 tests/browser/coverage/
-tests/inject/coverage/
 coverage/
 
 # IDE and editor configs

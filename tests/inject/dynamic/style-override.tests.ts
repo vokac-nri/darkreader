@@ -164,7 +164,8 @@ describe('STYLE ELEMENTS', () => {
         style.remove();
         await timeout(0);
         expect(sibling.isConnected).toBe(false);
-        expect(document.querySelector('.darkreader--sync')).toBe(null);
+        // Scoped to the container: the test runner's own <style> in <head> gets a sync too
+        expect(container.querySelector('.darkreader--sync')).toBe(null);
         expect(getComputedStyle(container.querySelector('h1')!).color).toBe('rgb(255, 255, 255)');
         expect(getComputedStyle(container.querySelector('h1 strong')!).color).toBe('rgb(255, 255, 255)');
     });

@@ -165,8 +165,20 @@ export async function writeJSON(dest, content, space = 4) {
  * @returns {Promise<string[]>}
  */
 export async function getPaths(patterns) {
-    const {globby} = await import('globby');
-    return await globby(patterns);
+    const expanded = await Promise.all((Array.isArray(patterns) ? patterns : [patterns]).map(async (pattern) => {
+        // A plain directory path means every file inside it
+        const stats = await fs.stat(pattern).catch(() => null);
+        return stats?.isDirectory() ? `${pattern}/**` : pattern;
+    }));
+    const paths = [];
+    for await (const entry of fs.glob(expanded, {withFileTypes: true})) {
+        const relativePath = path.relative('.', path.join(entry.parentPath, entry.name));
+        // Skip dotfiles and directories, and use forward slashes on every platform
+        if (entry.isFile() && !relativePath.split(path.sep).some((part) => part.startsWith('.'))) {
+            paths.push(relativePath.split(path.sep).join('/'));
+        }
+    }
+    return paths;
 }
 
 /**
