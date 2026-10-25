@@ -27,9 +27,10 @@ on:
 
 jobs:
   test-browser:
-    # Only the Karma injection tests. The Puppeteer end-to-end suites
-    # (test:chrome, test:chrome-mv3, test:firefox) are not run here:
-    # the MV2 Chromium suite cannot load its extension in current Chrome.
+    # Only the injection tests (Vitest browser mode on Playwright's Chromium,
+    # Firefox and WebKit). The Puppeteer end-to-end suites (test:chrome,
+    # test:chrome-mv3, test:firefox) are not run here: the MV2 Chromium suite
+    # cannot load its extension in current Chrome.
     name: Run injection tests
     timeout-minutes: 10
     runs-on: ubuntu-latest
@@ -37,25 +38,6 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
-
-      - name: Install Chrome
-        uses: browser-actions/setup-chrome@latest
-        with:
-          chrome-version: stable
-
-      - name: Configure Karma with path to Chrome executable
-        run: |
-          chrome --version
-          { echo CHROME_BIN="$(which chrome)"; echo CHROME_TEST=1; } | tee -a "$GITHUB_ENV"
-
-      - name: Install Firefox
-        uses: browser-actions/setup-firefox@latest
-        with:
-          firefox-version: latest
-      - name: Configure Karma with path to Firefox executable
-        run: |
-          firefox --version
-          { echo FIREFOX_BIN="$(which firefox)"; echo FIREFOX_TEST=1; } | tee -a "$GITHUB_ENV"
 
       - name: Node setup
         uses: actions/setup-node@v4
@@ -66,5 +48,8 @@ jobs:
       - name: Install NPM dependencies
         run: npm ci
 
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+
       - name: Run injection tests
-        run: npm run test:inject -- --ci
+        run: npm run test:inject

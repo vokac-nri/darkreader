@@ -10,7 +10,7 @@
         ],
         "types": [
             "chrome",
-            "jasmine"
+            "vitest/globals"
         ],
         "allowJs": true,
         "downlevelIteration": true,
@@ -25,6 +25,7 @@
         "inlineSources": true,
         "noEmitOnError": true,
         "strictPropertyInitialization": false,
+        "skipLibCheck": true,
         "baseUrl": "../../src",
         "paths": {
             "@plus/*": ["stubs/*"]
@@ -32,6 +33,8 @@
         "ignoreDeprecations": "6.0",
     },
     "exclude": [
-        "./coverage"
+        "./vitest.config.mjs",
+        "./support/echo-server.js",
+        "./support/global-setup.js"
     ]
 }
