@@ -85,7 +85,7 @@
     "less": "4.9.1",
     "playwright": "1.64.1",
     "prettier": "3.9.9",
-    "puppeteer-core": "25.12.0",
+    "puppeteer-core": "25.18.1",
     "rollup": "4.63.5",
     "ts-jest": "29.4.14",
     "tslib": "2.8.1",
